@@ -9,3 +9,7 @@ eureka:
     fetch-registry: true
     service-url:
       defaultZone: http://172.16.213.26:8761/eureka
+
+spring:
+  config:
+    import: classpath:secret.yml
