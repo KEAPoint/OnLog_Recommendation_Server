@@ -1,5 +1,8 @@
 package keapoint.onlog.recommendation.service;
 
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.translate.Translate;
+import com.google.cloud.translate.TranslateOptions;
 import keapoint.onlog.recommendation.base.BaseErrorCode;
 import keapoint.onlog.recommendation.base.BaseException;
 import keapoint.onlog.recommendation.dto.GetRecommendationReqDto;
@@ -11,12 +14,20 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
 public class RecommendationService {
+
+    @Value("${google_translate_key_path}")
+    private String googleCredentialsPath;
+
+    @Value("${karlo-api-key}")
+    private String karloApiKey;
 
     @Value("${clova.api-key-id}")
     private String clovaApiKeyID;
@@ -25,12 +36,8 @@ public class RecommendationService {
     private String clovaApiKey;
 
     public GetRecommendationResDto recommend(GetRecommendationReqDto data) throws BaseException {
-        // TF-IDF 계산기를 통해 총 5개의 키워드를 생성한다.
-        List<String> keywords = TFIDFCalculator.getKeyWords(data.getContent(), 5 - data.getHashtag().size());
-        log.info("Keywords: " + String.join(", ", keywords));
-
         // karlo에 추천 이미지를 요청한다.
-        CompletableFuture<List<String>> keywordImageFuture = requestImageToKarlo(keywords);
+        CompletableFuture<List<String>> keywordImageFuture = requestImageToKarlo(data);
 
         // 비동기로 clova에 3줄 요약을 요청한다.
         CompletableFuture<String> summaryFuture = requestSummaryToClova(data.getContent());
@@ -54,16 +61,55 @@ public class RecommendationService {
     /**
      * 이미지 생성
      *
-     * @param keywords 게시글 핵심 키워드 (5개)
-     * @return 이미지 url
+     * @param data 게시글 본문과 사용자가 지정한 해시태그가 들어있는 객체체     * @return 이미지 url
      */
-    private CompletableFuture<List<String>> requestImageToKarlo(List<String> keywords) {
-        // Google translator에 요청해 해당 키워드를 영어로 번역한다
-
-        // 번역된 키워드를 karlo에 요청한다
+    private CompletableFuture<List<String>> requestImageToKarlo(GetRecommendationReqDto data) throws BaseException {
         return CompletableFuture.supplyAsync(() -> {
-            return new ArrayList<>();
+            // TF-IDF 계산기를 통해 총 5개의 키워드를 생성한다.
+            List<String> hashTagList = new ArrayList<>();
+            hashTagList.addAll(data.getHashtag());
+            hashTagList.addAll(TFIDFCalculator.getKeyWords(data.getContent(), 5 - data.getHashtag().size()));
+
+            log.info("Keywords: " + String.join(", ", hashTagList));
+
+            // Google translator에 요청해 해당 키워드를 영어로 번역한다
+            List<String> translatedHashtagList = translateKeywords(hashTagList);
+            log.info("Keywords: " + String.join(", ", translatedHashtagList));
+
+            // 번역된 키워드를 karlo에 요청한다
+
+            return translatedHashtagList;
         });
+    }
+
+    /**
+     * 키워드들을 영어로 번역
+     *
+     * @param keywords 게시글 핵심 키워드 (5개)
+     * @return 번역된 키워드 리스트
+     */
+    private List<String> translateKeywords(List<String> keywords) throws RuntimeException {
+        try {
+            GoogleCredentials credentials = GoogleCredentials.fromStream(new FileInputStream(googleCredentialsPath));
+            Translate translateService = TranslateOptions.newBuilder().setCredentials(credentials).build().getService();
+
+            List<String> translatedKeywords = new ArrayList<>();
+            for (String keyword : keywords) {
+                // Google translator에 요청해 해당 키워드를 영어로 번역한다.
+                Translate.TranslateOption srcLang = Translate.TranslateOption.sourceLanguage("ko");
+                Translate.TranslateOption tgtLang = Translate.TranslateOption.targetLanguage("en");
+
+                String translatedText = translateService.translate(keyword, srcLang, tgtLang).getTranslatedText();
+                log.info("Google translate: " + keyword + " -> " + translatedText);
+                translatedKeywords.add(translatedText);
+            }
+
+            return translatedKeywords;
+
+        } catch (IOException e) {
+            log.error(e.getMessage());
+            throw new RuntimeException("Unexpected error occurred");
+        }
     }
 
     /**
