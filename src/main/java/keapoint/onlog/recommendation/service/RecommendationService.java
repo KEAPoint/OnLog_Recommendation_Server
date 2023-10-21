@@ -36,11 +36,11 @@ public class RecommendationService {
     private String clovaApiKey;
 
     public GetRecommendationResDto recommend(GetRecommendationReqDto data) throws BaseException {
-        // karlo에 추천 이미지를 요청한다.
-        CompletableFuture<List<String>> keywordImageFuture = requestImageToKarlo(data);
+        // 비동기로 추천 이미지를 요청한다.
+        CompletableFuture<List<String>> keywordImageFuture = requestImage(data);
 
-        // 비동기로 clova에 3줄 요약을 요청한다.
-        CompletableFuture<String> summaryFuture = requestSummaryToClova(data.getContent());
+        // 비동기로 게시글 요약을 요청한다.
+        CompletableFuture<String> summaryFuture = requestSummary(data.getContent());
 
         // 모든 비동기 작업이 완료될 때까지 기다린다.
         CompletableFuture.allOf(keywordImageFuture, summaryFuture).join();
@@ -63,7 +63,7 @@ public class RecommendationService {
      *
      * @param data 게시글 본문과 사용자가 지정한 해시태그가 들어있는 객체체     * @return 이미지 url
      */
-    private CompletableFuture<List<String>> requestImageToKarlo(GetRecommendationReqDto data) throws BaseException {
+    private CompletableFuture<List<String>> requestImage(GetRecommendationReqDto data) {
         return CompletableFuture.supplyAsync(() -> {
             // TF-IDF 계산기를 통해 총 5개의 키워드를 생성한다.
             List<String> hashTagList = new ArrayList<>();
@@ -77,8 +77,13 @@ public class RecommendationService {
             log.info("Keywords: " + String.join(", ", translatedHashtagList));
 
             // 번역된 키워드를 karlo에 요청한다
+            List<String> imageUrlList = requestImageToKarlo(translatedHashtagList);
+            for (int i = 0; i < imageUrlList.size(); i++) {
+                String url = imageUrlList.get(i);
+                log.info(String.format("Image #%d: %s", (i + 1), url));
+            }
 
-            return translatedHashtagList;
+            return imageUrlList;
         });
     }
 
@@ -113,17 +118,87 @@ public class RecommendationService {
     }
 
     /**
+     * 이미지 생성
+     *
+     * @param keywords 키워드 리스트
+     * @return 생성된 이미지 url
+     */
+    private List<String> requestImageToKarlo(List<String> keywords) throws RuntimeException {
+        HttpEntity<Map<String, Object>> entity = prepareKarloRequestEntity(keywords);
+
+        RestTemplate restTemplate = new RestTemplate(); // HTTP 요청을 보내기 위한 RestTemplate 객체 생성
+
+        // Karlo 이미지 생성 API에 POST 요청
+        ResponseEntity<Map<String, Object>> response =
+                restTemplate.exchange(
+                        "https://api.kakaobrain.com/v2/inference/karlo/t2i",
+                        HttpMethod.POST,
+                        entity,
+                        new ParameterizedTypeReference<>() {
+                        }
+                );
+
+        // 로깅
+        log.info("Karlo: " + response);
+
+        if (response.getStatusCode() == HttpStatus.OK) {
+            Map<String, Object> body = response.getBody();
+
+            if (body != null && body.containsKey("images")) { // 응답 본문에서 "images"라는 키의 값이 있는 경우
+                List<?> imagesList = (List<?>) body.get("images");
+
+                ArrayList<String> imageUrls = new ArrayList<>();
+                for (Object obj : imagesList) {
+                    Map<?, ?> imageMap = (Map<?, ?>) obj;
+                    String imageUrl = (String) imageMap.get("image");
+                    imageUrls.add(imageUrl);
+                }
+
+                return imageUrls; // 이미지 URL 리스트를 반환
+
+            } else { // 응답 본문에서 "images"라는 키의 값이 없는 경우
+                throw new RuntimeException("Images not found in response");
+            }
+
+        } else { // 응답이 실패한 경우
+            log.error(response.toString());
+            throw new RuntimeException("Unexpected error occurred");
+        }
+
+    }
+
+    /**
+     * HTTP 요청 객체를 준비하는 메서드 (Karlo)
+     *
+     * @param keywords 키워드 리스트
+     * @return {@link HttpEntity} 객체. 이 객체는 Karlo 이미지 생성 API에 보낼 HTTP POST 요청을 포함하고 있다.
+     */
+    private HttpEntity<Map<String, Object>> prepareKarloRequestEntity(List<String> keywords) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "KakaoAK " + karloApiKey);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("prompt", String.join(", ", keywords));
+        data.put("width", 600);
+        data.put("height", 600);
+        data.put("samples", 8);
+
+        return new HttpEntity<>(data, headers);
+    }
+
+    /**
      * 게시글 요약 메서드
      *
      * @param content 게시글 내용
      * @return 요약된 게시글
      * @throws BaseException 요청이 실패하거나 응답을 처리하는 도중 예외가 발생한 경우
      */
-    private CompletableFuture<String> requestSummaryToClova(String content) {
+    private CompletableFuture<String> requestSummary(String content) {
         return CompletableFuture.supplyAsync(() -> { // 비동기적으로 실행되는 작업 생성
-            HttpEntity<Map<String, Object>> entity = prepareRequestEntity(content);
+            HttpEntity<Map<String, Object>> entity = prepareClovaRequestEntity(content);
 
-            RestTemplate restTemplate = new RestTemplate();  // HTTP 요청을 보내기 위한 RestTemplate 객체 생성
+            RestTemplate restTemplate = new RestTemplate(); // HTTP 요청을 보내기 위한 RestTemplate 객체 생성
 
             // Naver Clova 텍스트 요약 API에 POST 요청
             ResponseEntity<Map<String, Object>> response =
@@ -156,12 +231,12 @@ public class RecommendationService {
     }
 
     /**
-     * HTTP 요청 객체를 준비하는 메서드
+     * HTTP 요청 객체를 준비하는 메서드 (Clova)
      *
      * @param content 게시글 내용
      * @return {@link HttpEntity} 객체. 이 객체는 Naver Clova 텍스트 요약 API에 보낼 HTTP POST 요청을 포함하고 있다.
      */
-    private HttpEntity<Map<String, Object>> prepareRequestEntity(String content) {
+    private HttpEntity<Map<String, Object>> prepareClovaRequestEntity(String content) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-NCP-APIGW-API-KEY-ID", clovaApiKeyID);
