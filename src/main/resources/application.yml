@@ -13,3 +13,5 @@ eureka:
 spring:
   config:
     import: classpath:secret.yml
+
+google_translate_key_path: ./src/main/resources/google-translate-key.json
