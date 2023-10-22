@@ -14,4 +14,4 @@ spring:
   config:
     import: classpath:secret.yml
 
-google_translate_key_path: ./src/main/resources/google-translate-key.json
+google_translate_key_path: app/google-translate-key.json

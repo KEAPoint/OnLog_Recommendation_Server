@@ -14,8 +14,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -61,7 +61,8 @@ public class RecommendationService {
     /**
      * 이미지 생성
      *
-     * @param data 게시글 본문과 사용자가 지정한 해시태그가 들어있는 객체체     * @return 이미지 url
+     * @param data 게시글 본문과 사용자가 지정한 해시태그가 들어있는 객체
+     * @return 이미지 url
      */
     private CompletableFuture<List<String>> requestImage(GetRecommendationReqDto data) {
         return CompletableFuture.supplyAsync(() -> {
@@ -95,7 +96,8 @@ public class RecommendationService {
      */
     private List<String> translateKeywords(List<String> keywords) throws RuntimeException {
         try {
-            GoogleCredentials credentials = GoogleCredentials.fromStream(new FileInputStream(googleCredentialsPath));
+            InputStream inputStream = RecommendationService.class.getClassLoader().getResourceAsStream(googleCredentialsPath);
+            GoogleCredentials credentials = GoogleCredentials.fromStream(inputStream);
             Translate translateService = TranslateOptions.newBuilder().setCredentials(credentials).build().getService();
 
             List<String> translatedKeywords = new ArrayList<>();
