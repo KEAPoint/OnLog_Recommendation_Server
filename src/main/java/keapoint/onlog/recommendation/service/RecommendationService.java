@@ -14,8 +14,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -96,8 +96,7 @@ public class RecommendationService {
      */
     private List<String> translateKeywords(List<String> keywords) throws RuntimeException {
         try {
-            InputStream inputStream = RecommendationService.class.getClassLoader().getResourceAsStream(googleCredentialsPath);
-            GoogleCredentials credentials = GoogleCredentials.fromStream(inputStream);
+            GoogleCredentials credentials = GoogleCredentials.fromStream(new FileInputStream(googleCredentialsPath));
             Translate translateService = TranslateOptions.newBuilder().setCredentials(credentials).build().getService();
 
             List<String> translatedKeywords = new ArrayList<>();

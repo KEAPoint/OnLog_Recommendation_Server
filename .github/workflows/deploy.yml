@@ -30,10 +30,12 @@ jobs:
 
       # 3. google-translate-key.json 파일 셋팅
       - name: Set google translate key json file.
-        run: |
-          touch ./src/main/resources/google-translate-key.json
-          echo "${{ secrets.GOOGLETRANSLATEKEYJSON }}" > ./src/main/resources/google-translate-key.json
-          cat ./src/main/resources/google-translate-key.json
+        id: create-json
+        uses: jsdaniell/create-json@v1.2.2
+        with:
+          name: "google-translate-key.json"
+          json: ${{ secrets.GOOGLETRANSLATEKEYJSON }}
+          dir: './src/main/resources/'
 
       # 4. 권한 부여
       - name: Grant execute permission for gradlew
