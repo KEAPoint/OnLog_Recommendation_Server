@@ -2,13 +2,13 @@
 
 ## 🌐 프로젝트 개요
 
-현재 저희는 람다를 활용한 [게시글 요약 서비스](https://github.com/KEAPoint/OnLog_Text_Summarization_Lambda)와 인스턴스에 컨테이너를
-올린 [게시글 썸네일 추천 서비스](https://github.com/KEAPoint/OnLog_Image_Generation)를 운영 중입니다.
+현재 저희는 람다를 활용한 [🔗게시글 요약 서비스](https://github.com/KEAPoint/OnLog_Text_Summarization_Lambda)와 인스턴스에 컨테이너를
+올린 [🔗게시글 썸네일 추천 서비스](https://github.com/KEAPoint/OnLog_Image_Generation)를 운영 중입니다.
 
 람다 서비스는 요청이 들어올 때마다 응답해주며, 그 처리 시간 동안의 비용을 부과합니다. 그러나 앞으로 사용자가 많아질 경우, 인스턴스 사용량보다 더 큰 비용이 발생할 가능성이 있습니다.
 
-따라서, [게시글 요약 서비스](https://github.com/KEAPoint/OnLog_Text_Summarization_Lambda)
-와 [썸네일 추천 서비스](https://github.com/KEAPoint/OnLog_Image_Generation)를 통합 운영함으로써 더욱 효율적으로 자원을 활용하고자 해당 프로젝트를 개발하게 되었습니다.
+따라서, [🔗게시글 요약 서비스](https://github.com/KEAPoint/OnLog_Text_Summarization_Lambda)
+와 [🔗썸네일 추천 서비스](https://github.com/KEAPoint/OnLog_Image_Generation)를 통합 운영함으로써 더욱 효율적으로 자원을 활용하고자 해당 프로젝트를 개발하게 되었습니다.
 
 ## 🛠️ 프로젝트 개발 환경
 
